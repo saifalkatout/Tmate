@@ -12,6 +12,7 @@ namespace MateAPI.Models
 
         public string Password { get; set; }
         public string Token { get; set; }
+        public string RefreshToken { get; set; }
         public int PhoneNumber { get; set; }
         public string Shopname { get; set; }
 
@@ -25,6 +26,7 @@ namespace MateAPI.Models
         public string categoryIDs { get; set; }
         public byte[] TradeMark { get; set; }
         public byte[] logo { get; set; }
+        public string salt {get;set;}
    
     }
    

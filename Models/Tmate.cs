@@ -12,6 +12,7 @@ namespace MateAPI.Models
 
         public string Password { get; set; }
         public string Token { get; set; }
+        public string RefreshToken { get; set; }
         public int PhoneNumber { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
@@ -24,7 +25,7 @@ namespace MateAPI.Models
         public Boolean pay { get; set; }
         public long followers { get; set; }
         public string categoryIDs { get; set; }
-
+        public string salt {get;set;}
         public byte[] ProfilePic { get; set; }
     }
 }

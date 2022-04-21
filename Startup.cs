@@ -37,26 +37,25 @@ namespace MateAPI
         {
 
             //add the db please
-            var ConnectionString =
-  "Data Source=SKATOUTLAPTOP\\MSSQL2017;" +
-  "Initial Catalog=Tmate;" +
-  "User id=sky;" +
-  "Password=software;";
+            var ConnectionString ="Server=tcp:saifserver2.database.windows.net,1433;Initial Catalog=TmateDB;Persist Security Info=False;User ID=s.katout;Password=Mns@2020;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
             services.AddScoped<IMateRepository, MateRepostiroy>();
             services.AddDbContext<Context>(o => o.UseSqlServer(ConnectionString));    
             services.AddControllers();
             JwtConfig jwtConfig = new JwtConfig();
             _Configuration.Bind("JwtConfig", jwtConfig);
             services.AddSingleton(jwtConfig);
-            services.AddSingleton<TokenManager>();
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
-            {
-                o.TokenValidationParameters = new TokenValidationParameters
+            var TokenValidationParameters = new TokenValidationParameters
                 {
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig.Secret)),
                     ValidateIssuerSigningKey = true,
-                    ClockSkew = TimeSpan.Zero
+                    ClockSkew = TimeSpan.Zero,
+                    ValidateAudience = false, 
+                    ValidateIssuer = false,
                 };
+            services.AddSingleton(TokenValidationParameters);
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
+            {
+                o.TokenValidationParameters  = TokenValidationParameters;
             });
             services.AddSwaggerGen(c =>
             {

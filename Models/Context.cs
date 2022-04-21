@@ -18,6 +18,6 @@ namespace MateAPI.Models
         public DbSet<Shop> Shops { get; set; }
 
         public DbSet<Service> Services { get; set; }
-        public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
     }
 }

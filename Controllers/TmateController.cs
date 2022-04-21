@@ -33,11 +33,11 @@ namespace MateAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult> RegisterTmate(int id, [FromBody] Tmate user)
-        {
-            var newUser = await _mateRepository.RegisterTmate(user);
-            return CreatedAtAction(nameof(GetTmates), new { id = newUser.ID }, newUser);
-        }
+        // public async Task<ActionResult> RegisterTmate(int id, [FromBody] Tmate user)
+        // {
+        //     var newUser = await _mateRepository.RegisterTmate(user);
+        //     return CreatedAtAction(nameof(GetTmates), new { id = newUser.ID }, newUser);
+        // }
         [HttpPut]
         public async Task<ActionResult> UpdateTmate(int id, [FromBody] Tmate user)
         {

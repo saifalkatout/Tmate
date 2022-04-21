@@ -5,33 +5,51 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace MateAPI.repositories
 {
     public class MateRepostiroy : IMateRepository
     {
         private readonly Context _context;
-        private readonly TokenManager _tokenManager;
-        public MateRepostiroy(Context mateContext, TokenManager TokenManager)
+        private readonly JwtConfig _jwtconfig;
+
+        public MateRepostiroy(Context mateContext, JwtConfig jwtconfig)
         {
             _context = mateContext;
-            _tokenManager = TokenManager;
+            _jwtconfig = jwtconfig;
         }
-        public async Task<string> VerifyUser(int VerCode, int id)
+        public async Task<AuthResult> VerifyUser(int VerCode, int id)
         {
             if (VerCode == 1236)
             {
                 var user = await _context.Users.FindAsync(id);
-                user.Token = _tokenManager.GenerateToken(user.Username.Trim());
-                return  user.Token; 
+                var TM = new TokenManager(_jwtconfig, _context);
+                return TM.GenerateToken(user.Username.Trim(),"2"); 
             }
             return null;
         }
-        public async Task<user> RegisterUser(user user)
+        public async Task<AuthResult> LoginUser(string username, string password)
         {
+            var SignedIn = await _context.Users.SingleOrDefaultAsync(user => user.Username == username);
+            if (BCrypt.Net.BCrypt.Verify(password,SignedIn.Password))
+                return new AuthResult(SignedIn.Token,SignedIn.RefreshToken,true);
+            else
+                return new AuthResult("","",false);
+        }
+         
+        public async Task<AuthResult> RegisterUser(user user)
+        {
+            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
-            return user;
+            return new AuthResult(user.Token,user.RefreshToken,true);
         }
 
         public async Task DeleteUser(int id)
@@ -61,14 +79,23 @@ namespace MateAPI.repositories
         {
             return await _context.Tmates.ToListAsync();
         }
-
-        public async Task<string> VerifyTmate(int VerCode, int id)
+        public async Task<AuthResult> LoginTmate(string username, string password)
+        {
+            var SignedIn = await _context.Tmates.SingleOrDefaultAsync(user => user.Username == username);
+            if (BCrypt.Net.BCrypt.Verify(password,SignedIn.Password)){
+                
+                return new AuthResult(SignedIn.Token,SignedIn.RefreshToken,true);
+            }
+            else
+                return new AuthResult("","",false);
+        }
+        public async Task<AuthResult> VerifyTmate(int VerCode, int id)
         {
             if (VerCode == 1234)
             {
                var Tmate = await _context.Tmates.FindAsync(id); 
-               Tmate.Token =  _tokenManager.GenerateToken(Tmate.Username.Trim());
-               return Tmate.Token; 
+               var TM = new TokenManager(_jwtconfig, _context);
+               return TM.GenerateToken(Tmate.Username.Trim(),"3"); 
             }
             return null;
         }
@@ -77,11 +104,12 @@ namespace MateAPI.repositories
             return await _context.Tmates.FindAsync(id);
         }
 
-        public async Task<Tmate> RegisterTmate(Tmate user)
+        public async Task<AuthResult> RegisterTmate(Tmate user)
         {
+            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             _context.Tmates.Add(user);
             await _context.SaveChangesAsync();
-            return user;
+            return new AuthResult(user.Token,user.RefreshToken,true);
         }
 
         public async Task UpdateTmate(Tmate user)
@@ -97,7 +125,7 @@ namespace MateAPI.repositories
             await _context.SaveChangesAsync();
         }
 
-        public async Task<string> VerifyShop(int VerCode, int id)
+        public async Task<AuthResult> VerifyShop(int VerCode, int id)
         {
             if (VerCode == 1234)
             {
@@ -105,8 +133,8 @@ namespace MateAPI.repositories
                 _context.Remove(userToDelete);
                 await _context.SaveChangesAsync();*/
                 var shop = await _context.Shops.FindAsync(id);
-                shop.Token = _tokenManager.GenerateToken(shop.Username.Trim());
-                return shop.Token;
+                var TM = new TokenManager(_jwtconfig, _context);
+               return TM.GenerateToken(shop.Username.Trim(),"3"); 
             }
             return null;
         }
@@ -120,21 +148,22 @@ namespace MateAPI.repositories
             return await _context.Shops.FindAsync(id);
         }
 
-        public async Task<Shop> RegisterShop(Shop user)
+        public async Task<AuthResult> RegisterShop(Shop user)
         {
-            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password, BCrypt.Net.BCrypt.GenerateSalt()).Substring(0,10);
+            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             _context.Shops.Add(user);
             await _context.SaveChangesAsync();
-            return user;
+            return new AuthResult(user.Token,user.RefreshToken,true);
         }
         public async Task<AuthResult> LoginShop(string username, string password)
         {
-            Shop SignedInShop = await _context.Shops.SingleOrDefaultAsync(user => user.Username == username);
-            if (BCrypt.Net.BCrypt.HashPassword(password, BCrypt.Net.BCrypt.GenerateSalt()).Substring(0, 10) == SignedInShop.Password)
-                return new AuthResult(SignedInShop.Token,SignedInShop.Token,true);
-            else
+            var SignedIn = await _context.Shops.SingleOrDefaultAsync(user => user.Username == username);
+            if (BCrypt.Net.BCrypt.Verify(password,SignedIn.Password))
+                return new AuthResult(SignedIn.Token,SignedIn.RefreshToken,true);
+             else
                 return new AuthResult("","",false);
         }
+         
         public async Task UpdateShop(Shop user)
         {
             _context.Entry(user).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
@@ -178,6 +207,68 @@ namespace MateAPI.repositories
             var Services =  await _context.Services.ToListAsync();
             //might need improvement
             return Services.Where((x) => x.ShopID == shopID);
+        }
+
+        public async Task<AuthResult> RefreshTokenTask(string token, string refreshToken)
+        {
+                var validatedToken = GetPrincipalFromToken(token);
+                if(validatedToken == null){
+                  return new AuthResult("","",false);
+                }
+                var ExpiryDate = long.Parse(validatedToken.Claims.Single(x=>x.Type == JwtRegisteredClaimNames.Exp).Value);
+                var proccessedDate = new DateTime().AddSeconds(ExpiryDate);
+                if(proccessedDate > DateTime.UtcNow){
+                    return new AuthResult("","",false);
+                }
+                var jti = (validatedToken.Claims.Single(x=>x.Type == JwtRegisteredClaimNames.Jti).Value); 
+                var StoredRefreshToken = await _context.RefreshTokens.SingleOrDefaultAsync(x=>x.Token == (refreshToken));
+                if(StoredRefreshToken == null){
+                    return new AuthResult("","",false);
+                }
+                if(DateTime.UtcNow > StoredRefreshToken.ExpiryDate){
+                   return new AuthResult("","",false);
+                }
+                if(StoredRefreshToken.IsRevorked){
+                    return new AuthResult("","",false);
+                }
+                if(StoredRefreshToken.IsUsed)
+                    return new AuthResult("","",false);
+                if(StoredRefreshToken.JwtId != jti)
+                   return new AuthResult("","",false);
+                StoredRefreshToken.IsUsed = true;
+                _context.RefreshTokens.Update(StoredRefreshToken);
+                await _context.SaveChangesAsync();
+                var TM = new TokenManager(_jwtconfig, _context);
+                var name = validatedToken.Claims.Single(x=>x.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier").Value;
+                var type = validatedToken.Claims.Single(x=>x.Type == JwtRegisteredClaimNames.Typ).Value;
+                return  TM.GenerateToken(name,type);
+        }
+        private ClaimsPrincipal GetPrincipalFromToken(string token){
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var TokenValidationParameters = new TokenValidationParameters
+                {
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtconfig.Secret)),
+                    ValidateIssuerSigningKey = true,
+                    ClockSkew = TimeSpan.Zero,
+                    ValidateAudience = false, 
+                    ValidateIssuer = false,
+
+                };
+            try{
+                var principle = tokenHandler.ValidateToken(token,TokenValidationParameters ,out var validatedToken);
+                if(!isJWTWithSecurity(validatedToken)){
+                    return null;
+                }
+                return principle;
+            }
+            catch (Exception e){
+                Console.WriteLine(e);
+                return null;
+            }
+        }
+        private bool isJWTWithSecurity(SecurityToken validatedToken){
+            return (validatedToken is JwtSecurityToken jwtsecuritytoken) && 
+            jwtsecuritytoken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase);
         }
     }
 }

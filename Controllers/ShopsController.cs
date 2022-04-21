@@ -24,12 +24,12 @@ namespace MateAPI.Controllers
             _mateRepository = mateRepository;
             _tokenManager = tokenManager;
         }
-        [HttpPost]
-        public async Task<ActionResult> RegisterShop(int id, [FromBody] Shop user)
-        {
-            var newUser = await _mateRepository.RegisterShop(user);
-            return CreatedAtAction(nameof(GetShops), new { id = newUser.ID }, newUser);
-        }
+       // [HttpPost]
+        // public async Task<ActionResult> RegisterShop(int id, [FromBody] Shop user)
+        // {
+        //     var newUser = await _mateRepository.RegisterShop(user);
+        //     return CreatedAtAction(nameof(GetShops), new { id = newUser.ID }, newUser);
+        // }
         [HttpPost("refresh")]
         /*public async Task<IActionResult> Refresh([FromBody] RefreshToken refreshRequest)
         {

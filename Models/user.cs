@@ -12,6 +12,7 @@ namespace MateAPI.Models
 
         public string Password { get; set; }
         public string Token { get; set; }
+        public string RefreshToken { get; set; }
         public int PhoneNumber { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
@@ -19,5 +20,6 @@ namespace MateAPI.Models
         public string Email { get; set; }
         public string Country { get; set; }
         public byte[] profilepicture { get; set; }
+        public string salt {get;set;}
     }
 }
